@@ -1,0 +1,72 @@
+source ~/.addCreds/helpers/ctf_creds
+
+# Request the AD computer name (cred name), IP and login details
+echo "Enter the AD computer name (cred name): "
+read cred_name
+echo "Enter the IP address: "
+read ip
+echo "Enter the username: "
+read username
+echo "Enter the password: "
+read password
+
+echo "Enter the domain (if present): "
+read domain
+
+# Always make the cred name lowercase
+cred_name=$(echo "$cred_name" | tr '[:upper:]' '[:lower:]')
+
+# Create the cred directory
+ctf_dir=$(get_ctf_dir)
+mkdir -p "${ctf_dir}${cred_name}"
+
+script_dir=$(get_script_dir)
+mkdir -p "${script_dir}${cred_name}"
+
+# Add data to the file
+echo "IP: $ip" > "${ctf_dir}${cred_name}/cred_info.txt"
+echo "Username: $username" >> "${ctf_dir}${cred_name}/cred_info.txt"
+echo "Password: $password" >> "${ctf_dir}${cred_name}/cred_info.txt"
+
+# Create a scripts for rofi-hacking-helper
+create_script "${cred_name}" "get_ip" "xdotool type --delay 10 \"$ip\"" 
+create_script "${cred_name}" "get_username" "xdotool type --delay 10 \"$username\""
+create_script "${cred_name}" "get_password" "xdotool type --delay 10 \"$password\""
+
+if [ -n "$domain" ]; then
+    echo "Domain: $domain" >> "${ctf_dir}${cred_name}/cred_info.txt"
+
+    # Generate the base DN for LDAP from the domain
+    base_dn=$(echo "$domain" | awk -F. '{for (i=1; i<=NF; i++) printf "DC=%s%s", $i, (i<NF?",":"")}')
+
+    # Create the ldapsearch script
+    create_script "${cred_name}" "ldapsearch" "xdotool type --delay 10 \"ldapsearch -x -H ldap://${ip} -D \\\"${username}@${domain}\\\" -w \\\"${password}\\\" -b \\\"${base_dn}\\\" \\\"(objectClass=user)\\\" sAMAccountName memberOf\""
+
+    # create bloodhound collect data script
+    create_script "${cred_name}" "get_bloodhound_data" "xdotool type --delay 10 \"bloodhound-python -u ${username} -p '${password}' -d ${domain} -c All -dc dc01.${domain} -ns ${ip} \""
+
+    # Check if domain is already in /etc/hosts
+    if ! grep -q "$domain" /etc/hosts; then
+        echo "Domain $domain not found in /etc/hosts. Adding it now..."
+        echo "$ip    $domain dc01.${domain}" | sudo tee -a /etc/hosts > /dev/null
+        echo "Domain $domain has been added to /etc/hosts."
+    else
+        echo "Domain $domain is already present in /etc/hosts."
+    fi
+fi
+
+create_script "${cred_name}" "do_ssh" "xdotool type --delay 10 \"ssh ${username}@${ip}\""
+create_script "${cred_name}" "do_nmap" "xdotool type --delay 10 \"sudo nmap -sV -p- -sC -A -T4 --min-parallelism 10  --min-rate 1000 -oA nmap -Pn $ip\""
+create_script "${cred_name}" "do_gobuster_dir" "xdotool type --delay 10 \"gobuster dir -u http://$ip/ -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt -t 40 -b 400,404,403,429 -e -X /usr/share/wordlists/seclists/Discovery/Web-Content/web-extensions.txt\""
+create_script "${cred_name}" "connect_to_rdp" "xdotool type --delay 10 \"xfreerdp3 /u:'$username' /p:'$password' /v:'$ip' /cert:ignore  /smart-sizing /size:1920x1080\""
+
+# Information to user
+notify-send --urgency=normal --category=immediate --icon=dialog-information \
+    "Success" \
+    "Cred data for $cred_name has been added."
+
+# Success message in green
+echo -e "\033[0;32mSuccess! Cred details for $cred_name have been added.\033[0m"
+
+# Information message
+echo "Use Ctrl+Shift+M to find the scripts under $cred_name for the IP, username, and password."
