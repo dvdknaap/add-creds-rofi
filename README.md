@@ -21,7 +21,7 @@ You can quickly set up the project using the included `install.sh` script:
 
 1. Clone this repository and navigate to it:
    ```bash
-   git clone git@github.com:dvdknaap/add-creds-rofi.git ~/.addCreds
+   git clone https://github.com/dvdknaap/add-creds-rofi.git ~/.addCreds
    cd ~/.addCreds
    ```
 
