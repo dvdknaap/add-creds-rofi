@@ -13,7 +13,7 @@ check_and_install_rofi() {
 
 # Function to clone or update the repository
 clone_or_update_repo() {
-    local repo_url="git@github.com:spipm/rofi-hacking-helper.git"
+    local repo_url="git@github.com:dvdknaap/rofi-hacking-helper.git"
     local target_dir="$HOME/Desktop/base"
 
     if [ -d "$target_dir" ]; then
